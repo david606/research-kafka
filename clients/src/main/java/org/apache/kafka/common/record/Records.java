@@ -17,13 +17,16 @@
 package org.apache.kafka.common.record;
 
 /**
- * A binary format which consists of a 4 byte size, an 8 byte offset, and the record bytes. See {@link MemoryRecords}
- * for the in-memory representation.
+ * 二进制格式，由4字节大小，8字节偏移量和记录字节组成
+ * See {@link MemoryRecords} for the in-memory representation.
  */
 public interface Records extends Iterable<LogEntry> {
 
     int SIZE_LENGTH = 4;
     int OFFSET_LENGTH = 8;
+    /**
+     * 记录开销SIZE_LENGTH + OFFSET_LENGTH
+     */
     int LOG_OVERHEAD = SIZE_LENGTH + OFFSET_LENGTH;
 
     /**

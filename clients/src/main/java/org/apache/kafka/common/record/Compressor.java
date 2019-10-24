@@ -47,8 +47,8 @@ public class Compressor {
         }
     }
 
-    // dynamically load the snappy and lz4 classes to avoid runtime dependency if we are not using compression
-    // caching constructors to avoid invoking of Class.forName method for each batch
+    //动态加载snappy和lz4类，以避免在不使用压缩的情况下对运行时的依赖
+    //缓存构造函数，以避免为每个批次调用Class.forName方法
     private static MemoizingConstructorSupplier snappyOutputStreamSupplier = new MemoizingConstructorSupplier(new ConstructorSupplier() {
         @Override
         public Constructor get() throws ClassNotFoundException, NoSuchMethodException {
@@ -82,8 +82,16 @@ public class Compressor {
     });
 
     private final CompressionType type;
-    private final DataOutputStream appendStream;
+
+    /**
+     * 当写人数据超出 ByteBuffer 容量时 , ByteBufferOutputStream 会进行自动扩容
+     */
     private final ByteBufferOutputStream bufferStream;
+
+    /**
+     * 对bufferStream做了装饰,为其添加了压缩功能
+     */
+    private final DataOutputStream appendStream;
     private final int initPos;
 
     public long writtenUncompressed;
@@ -91,6 +99,11 @@ public class Compressor {
     public float compressionRate;
     public long maxTimestamp;
 
+    /**
+     *
+     * @param buffer
+     * @param type 从 KafkaProducer 传递过来的压缩类型
+     */
     public Compressor(ByteBuffer buffer, CompressionType type) {
         this.type = type;
         this.initPos = buffer.position();
@@ -102,12 +115,13 @@ public class Compressor {
 
         if (type != CompressionType.NONE) {
             // for compressed records, leave space for the header and the shallow message metadata
-            // and move the starting position to the value payload offset
+            // and move the starting position to the value payload(有效载荷) offset
             buffer.position(initPos + Records.LOG_OVERHEAD + Record.RECORD_OVERHEAD);
         }
 
         // create the stream
         bufferStream = new ByteBufferOutputStream(buffer);
+        //根据压缩类型创建合适 的压缩流
         appendStream = wrapForOutput(bufferStream, type, COMPRESSION_DEFAULT_BUFFER_SIZE);
     }
 
@@ -133,9 +147,9 @@ public class Compressor {
             buffer.position(initPos);
             buffer.putLong(numRecords - 1);
             buffer.putInt(pos - initPos - Records.LOG_OVERHEAD);
-            // write the shallow message (the crc and value size are not correct yet)
+            // 写浅信息（crc和值大小还不正确）
             Record.write(buffer, maxTimestamp, null, null, type, 0, -1);
-            // compute the fill the value size
+            // 计算填充值的大小
             int valueSize = pos - initPos - Records.LOG_OVERHEAD - Record.RECORD_OVERHEAD;
             buffer.putInt(initPos + Records.LOG_OVERHEAD + Record.KEY_OFFSET_V1, valueSize);
             // compute and fill the crc at the beginning of the message
@@ -231,25 +245,29 @@ public class Compressor {
         return numRecords;
     }
 
+    /**
+     * 估计写入字节大小(在判断 MemoryRecords 是否写满的逻辑中使用)<br>
+     * CompressionType.NONE:直接返回buffer.position;否则返回 写人的未压缩数据的字节数*指定压缩方式的压缩率*估算因子
+     * @return
+     */
     public long estimatedBytesWritten() {
         if (type == CompressionType.NONE) {
             return bufferStream.buffer().position();
         } else {
-            // estimate the written bytes to the underlying byte buffer based on uncompressed written bytes
+            // 根据未压缩的写入字节估计写入底层字节缓冲区的写入字节
             return (long) (writtenUncompressed * TYPE_TO_RATE[type.id] * COMPRESSION_RATE_ESTIMATION_FACTOR);
         }
     }
 
-    // the following two functions also need to be public since they are used in MemoryRecords.iteration
-
+    // 以下两个函数也需要公开，因为它们在MemoryRecords.iteration中使用
     public static DataOutputStream wrapForOutput(ByteBufferOutputStream buffer, CompressionType type, int bufferSize) {
         try {
             switch (type) {
                 case NONE:
                     return new DataOutputStream(buffer);
-                case GZIP:
+                case GZIP://GZIP是JDK自带的包,可以直接使用new创建实例
                     return new DataOutputStream(new GZIPOutputStream(buffer, bufferSize));
-                case SNAPPY:
+                case SNAPPY://Snappy 则需要引入额外的依赖包,为了在不使用 Snappy 压缩方式时,减少依赖包,这里使用反射的方式动态创建
                     try {
                         OutputStream stream = (OutputStream) snappyOutputStreamSupplier.get().newInstance(buffer, bufferSize);
                         return new DataOutputStream(stream);

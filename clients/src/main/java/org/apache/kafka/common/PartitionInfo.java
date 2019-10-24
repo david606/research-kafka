@@ -46,14 +46,14 @@ public class PartitionInfo {
     }
 
     /**
-     * The node id of the node currently acting as a leader for this partition or null if there is no leader
+     * 当前充当该分区的领导者的节点的节点ID；如果没有领导者，则为null
      */
     public Node leader() {
         return leader;
     }
 
     /**
-     * The complete set of replicas for this partition regardless of whether they are alive or up-to-date
+     * 此分区的完整副本集，无论它们是活动的还是最新的
      */
     public Node[] replicas() {
         return replicas;
@@ -62,6 +62,7 @@ public class PartitionInfo {
     /**
      * The subset of the replicas that are in sync, that is caught-up to the leader and ready to take over as leader if
      * the leader should fail
+     * 同步副本的子集(ISR),最接近Leader的副本集合,如果Leader失败,则从ISR中选取一个副本接替
      */
     public Node[] inSyncReplicas() {
         return inSyncReplicas;
@@ -77,7 +78,7 @@ public class PartitionInfo {
                              fmtNodeIds(inSyncReplicas));
     }
 
-    /* Extract the node ids from each item in the array and format for display */
+    // 从Node集合中的每个项目中提取节点ID，并格式化以显示
     private String fmtNodeIds(Node[] nodes) {
         StringBuilder b = new StringBuilder("[");
         for (int i = 0; i < nodes.length - 1; i++) {

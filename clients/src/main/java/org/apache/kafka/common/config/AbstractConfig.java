@@ -31,19 +31,34 @@ import java.util.TreeMap;
 /**
  * A convenient base class for configurations to extend.
  * <p>
+ * 一个方便的基类，用于扩展配置
+ * <p>
  * This class holds both the original configuration that was provided as well as the parsed
+ * <p>
+ * 这个类持有原始配置,以及解析后的配置
  */
 public class AbstractConfig {
 
     private final Logger log = LoggerFactory.getLogger(getClass());
 
-    /* configs for which values have been requested, used to detect unused configs */
+    /**
+     * configs for which values have been requested, used to detect unused configs
+     * <p>
+     * 存放被请求过的configs,用于发现未被使用的configs
+     */
     private final Set<String> used;
 
-    /* the original values passed in by the user */
+    /**
+     * the original values passed in by the user
+     * <p>
+     * 用户传过来的originals 配置参数
+     */
     private final Map<String, ?> originals;
 
-    /* the parsed values */
+    /**
+     * the parsed values
+     * 解析后的配置
+     */
     private final Map<String, Object> values;
 
     @SuppressWarnings("unchecked")
@@ -53,6 +68,8 @@ public class AbstractConfig {
             if (!(key instanceof String))
                 throw new ConfigException(key.toString(), originals.get(key), "Key must be a string.");
         this.originals = (Map<String, ?>) originals;
+
+        //根据配置定义,验证解析这些配置(预期这些配置的key是String类型)
         this.values = definition.parse(this.originals);
         this.used = Collections.synchronizedSet(new HashSet<String>());
         if (doLog)

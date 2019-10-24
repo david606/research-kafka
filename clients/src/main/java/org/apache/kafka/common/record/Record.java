@@ -51,7 +51,7 @@ public final class Record {
     public static final int HEADER_SIZE = CRC_LENGTH + MAGIC_LENGTH + ATTRIBUTE_LENGTH;
 
     /**
-     * The amount of overhead bytes in a record
+     * record中的开销字节数
      */
     public static final int RECORD_OVERHEAD = HEADER_SIZE + TIMESTAMP_LENGTH + KEY_SIZE_LENGTH + VALUE_SIZE_LENGTH;
 

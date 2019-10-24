@@ -30,7 +30,7 @@ sed \
     -e 's/broker.id=0/'broker.id=$BROKER_ID'/' \
     -e 's/#advertised.host.name=<hostname routable by clients>/'advertised.host.name=$PUBLIC_ADDRESS'/' \
     -e 's/zookeeper.connect=localhost:2181/'zookeeper.connect=$PUBLIC_ZOOKEEPER_ADDRESSES'/' \
-    $kafka_dir/config/server.properties > $kafka_dir/config/server-$BROKER_ID.properties
+    $kafka_dir/config/ > $kafka_dir/config/server-$BROKER_ID.properties
 
 echo "Killing server"
 bin/kafka-server-stop.sh || true

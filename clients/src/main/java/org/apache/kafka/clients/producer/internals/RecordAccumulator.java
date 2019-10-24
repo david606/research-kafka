@@ -50,10 +50,14 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * This class acts as a queue that accumulates records into {@link org.apache.kafka.common.record.MemoryRecords}
- * instances to be sent to the server.
+ * instances to be sent to the server.<br>
+ * 这个类被用作队列,消息被累积到MemoryRecords实例,然后发送到server
  * <p>
  * The accumulator uses a bounded amount of memory and append calls will block when that memory is exhausted, unless
- * this behavior is explicitly disabled.
+ * this behavior is explicitly disabled.<br>
+ * 累加器使用有限数量的内存，并且当该内存耗尽时，append调用将阻塞，除非明确禁用此行为。
+ * <p>
+ * RecordAccumulator至少有一个业务线程和一个 Sender 线程并发操作 , 所以必须是线程安全的
  */
 public final class RecordAccumulator {
 
@@ -143,7 +147,7 @@ public final class RecordAccumulator {
     }
 
     /**
-     * Add a record to the accumulator, return the append result
+     * 将记录添加到累加器，返回追加结果
      * <p>
      * The append result will contain the future metadata, and flag for whether the appended batch is full or a new batch is created
      * <p>

@@ -29,7 +29,7 @@ final class ClusterConnectionStates {
     }
 
     /**
-     * Return true iff we can currently initiate a new connection. This will be the case if we are not
+     * Return true if we can currently initiate a new connection. This will be the case if we are not
      * connected and haven't been connected for at least the minimum reconnection backoff period.
      * @param id The connection id to check
      * @param now The current time in MS
@@ -147,6 +147,8 @@ final class ClusterConnectionStates {
     
     /**
      * The state of our connection to a node
+     * ConnectionState:节点连接的状态
+     * lastConnectAttemptMs:最后一次连接尝试时间
      */
     private static class NodeConnectionState {
 

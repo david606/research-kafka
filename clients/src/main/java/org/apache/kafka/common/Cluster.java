@@ -3,9 +3,9 @@
  * file distributed with this work for additional information regarding copyright ownership. The ASF licenses this file
  * to You under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with the
  * License. You may obtain a copy of the License at
- * 
+ * <p>
  * http://www.apache.org/licenses/LICENSE-2.0
- * 
+ * <p>
  * Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on
  * an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the
  * specific language governing permissions and limitations under the License.
@@ -25,24 +25,47 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * A representation of a subset of the nodes, topics, and partitions in the Kafka cluster.
+ * Kafka集群中,nodes，topics和partitions的子集的表示形式
  */
 public final class Cluster {
 
     private final boolean isBootstrapConfigured;
+    /**
+     * Kafka 集群中节点信息列表
+     */
     private final List<Node> nodes;
     private final Set<String> unauthorizedTopics;
     private final Set<String> internalTopics;
+    /**
+     * 记录了 TopicPartition 与 Partitionlnfo 的映射关系
+     */
     private final Map<TopicPartition, PartitionInfo> partitionsByTopicPartition;
+    /**
+     * 记录了 Topic 名称和 Partitionlnfo 的映射关系
+     * 可以按照 Topic名称查询其中全部分区的详细信息
+     */
     private final Map<String, List<PartitionInfo>> partitionsByTopic;
+    /**
+     * Topic 与 Partitionlnfo 的映射关系
+     * List<PartitionInfo>中存放的分区必须是有 Leader 副本的 Partition(没有Leader副本的中间状态分区不在这果)
+     * (例如 Leader 副本宕机而触发的选举过程中 ,分区不一定有 Leader 副本)
+     */
     private final Map<String, List<PartitionInfo>> availablePartitionsByTopic;
+    /**
+     * 记录了 Node 与 Partitionlnfo 的映射关系
+     * 可以按照节点 Id 查询其上分布的全部分区的详细信息
+     */
     private final Map<Integer, List<PartitionInfo>> partitionsByNode;
+    /**
+     * Brokerld 与 Node 节点之间对应关系 ,方便按照 Brokerld 进行索引
+     */
     private final Map<Integer, Node> nodesById;
     private final ClusterResource clusterResource;
 
     /**
      * Create a new cluster with the given nodes and partitions
-     * @param nodes The nodes in the cluster
+     *
+     * @param nodes      The nodes in the cluster
      * @param partitions Information about a subset of the topic-partitions this cluster hosts
      * @deprecated Use the Cluster constructor with 5 parameters
      */
@@ -56,7 +79,8 @@ public final class Cluster {
 
     /**
      * Create a new cluster with the given id, nodes and partitions
-     * @param nodes The nodes in the cluster
+     *
+     * @param nodes      The nodes in the cluster
      * @param partitions Information about a subset of the topic-partitions this cluster hosts
      */
     public Cluster(String clusterId,
@@ -138,6 +162,7 @@ public final class Cluster {
 
     /**
      * Create a "bootstrap" cluster using the given list of host/ports
+     *
      * @param addresses The addresses
      * @return A cluster for these hosts/ports
      */
@@ -165,9 +190,10 @@ public final class Cluster {
     public List<Node> nodes() {
         return this.nodes;
     }
-    
+
     /**
      * Get the node by the node id (or null if no such node exists)
+     *
      * @param id The id of the node
      * @return The node, or null if no such node exists
      */
@@ -177,6 +203,7 @@ public final class Cluster {
 
     /**
      * Get the current leader for the given topic-partition
+     *
      * @param topicPartition The topic and partition we want to know the leader for
      * @return The node that is the leader for this topic-partition, or null if there is currently no leader
      */
@@ -190,6 +217,7 @@ public final class Cluster {
 
     /**
      * Get the metadata for the specified partition
+     *
      * @param topicPartition The topic and partition to fetch info for
      * @return The metadata about the given topic and partition
      */
@@ -199,6 +227,7 @@ public final class Cluster {
 
     /**
      * Get the list of partitions for this topic
+     *
      * @param topic The topic name
      * @return A list of partitions
      */
@@ -208,6 +237,7 @@ public final class Cluster {
 
     /**
      * Get the list of available partitions for this topic
+     *
      * @param topic The topic name
      * @return A list of partitions
      */
@@ -217,6 +247,7 @@ public final class Cluster {
 
     /**
      * Get the list of partitions whose leader is this node
+     *
      * @param nodeId The node id
      * @return A list of partitions
      */
@@ -226,6 +257,7 @@ public final class Cluster {
 
     /**
      * Get the number of partitions for the given topic
+     *
      * @param topic The topic to get the number of partitions for
      * @return The number of partitions or null if there is no corresponding metadata
      */
@@ -236,6 +268,7 @@ public final class Cluster {
 
     /**
      * Get all topics.
+     *
      * @return a set of all topics
      */
     public Set<String> topics() {

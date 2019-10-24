@@ -3,9 +3,9 @@
  * file distributed with this work for additional information regarding copyright ownership. The ASF licenses this file
  * to You under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with the
  * License. You may obtain a copy of the License at
- *
+ * <p>
  * http://www.apache.org/licenses/LICENSE-2.0
- *
+ * <p>
  * Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on
  * an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the
  * specific language governing permissions and limitations under the License.
@@ -32,12 +32,11 @@ import java.util.Objects;
 import java.util.Set;
 
 /**
- * A class encapsulating some of the logic around metadata.
+ * 封装一些围绕元数据(metadata)的逻辑的类.
  * <p>
- * This class is shared by the client thread (for partitioning) and the background sender thread.
- *
- * Metadata is maintained for only a subset of topics, which can be added to over time. When we request metadata for a
- * topic we don't have any metadata for it will trigger a metadata update.
+ * 此类由客户端线程（用于分区）和后台发送者线程(Sender)共享。
+ * <p>
+ * Metadata 只维护部分Topics,可以随时添加．当我们需要一个Topic的metadata而没有时,将会触发metadata的更新
  * <p>
  * If topic expiry is enabled for the metadata, any topic that has not been used within the expiry interval
  * is removed from the metadata refresh set after an update. Consumers disable topic expiry since they explicitly
@@ -50,18 +49,73 @@ public final class Metadata {
     public static final long TOPIC_EXPIRY_MS = 5 * 60 * 1000;
     private static final long TOPIC_EXPIRY_NEEDS_UPDATE = -1L;
 
+    /**
+     * <b>退避 ( backoff ) 时间</b>
+     * 两次发岀更新 Cluster 保存的元数据信息的最小时间差 ,默认为100ms
+     * 这是为了防止更新操作过于频繁而造成网络阻塞和增加服务端压力
+     */
     private final long refreshBackoffMs;
+    /**
+     * 每隔多久 , 更新一次
+     * 默认是 300 x 1000 , 也就是5分种
+     */
     private final long metadataExpireMs;
+
+    /**
+     * 表示 Kafka 集群元数据的版本号
+     * Kafka 集群元数据每更新成功一次 , version 字段的值增 1
+     * 通过新旧版本号的比较 , 判断集群元数据是否更新完成
+     */
     private int version;
+
+    /**
+     * 记录上一次更新元数据的时间戳 ( 也包含更新失败的情况 )
+     */
     private long lastRefreshMs;
+
+    /**
+     * 上一次成功更新的时间戳
+     * 如果每次都成功,则　lastSuccessfulRefreshMs、lastRefreshMs相等。否则lastRefreshMs＞ lastSuccessfulRefreshMs
+     */
     private long lastSuccessfulRefreshMs;
+
+    /**
+     * 记录 Kafka 集群的元数据
+     */
     private Cluster cluster;
+
+    /**
+     * 标识是否强制更新 Cluster
+     * 这 是 触 发 Sender 线程更新集群元数据的条件之一
+     */
     private boolean needUpdate;
-    /* Topics with expiry time */
+
+    /* ===================Topics with expiry time (到期时间的主题)============================*/
+
+    /**
+     * 记录了当前已知的所有 topic,在 cluster 字段中记录了 Topic 最新的元数据
+     */
     private final Map<String, Long> topics;
+
+    /**
+     * 监听 Metadata 更新的监听器集合
+     * 自定义 Metadata 监听实现 Metadata.Listener. onMetadataUpdate() 方法即可 ,
+     * 在更新 Metadata 中的 cluster 字段之前 , 会通知 listener 集合中全部 Listener 对象
+     */
     private final List<Listener> listeners;
+
+
     private final ClusterResourceListeners clusterResourceListeners;
+
+    /**
+     * 是否需要更新全部Topic的元数据,
+     * 一般情况下,KafkaProducer只维护它用到的Topic的元数据,是集群中全部Topic的子集
+     */
     private boolean needMetadataForAllTopics;
+
+    /**
+     * 是否开启Topic过期时间
+     */
     private final boolean topicExpiryEnabled;
 
     /**
@@ -77,10 +131,11 @@ public final class Metadata {
 
     /**
      * Create a new Metadata instance
-     * @param refreshBackoffMs The minimum amount of time that must expire between metadata refreshes to avoid busy
-     *        polling
-     * @param metadataExpireMs The maximum amount of time that metadata can be retained without refresh
-     * @param topicExpiryEnabled If true, enable expiry of unused topics
+     *
+     * @param refreshBackoffMs         The minimum amount of time that must expire between metadata refreshes to avoid busy
+     *                                 polling
+     * @param metadataExpireMs         The maximum amount of time that metadata can be retained without refresh
+     * @param topicExpiryEnabled       If true, enable expiry of unused topics
      * @param clusterResourceListeners List of ClusterResourceListeners which will receive metadata updates.
      */
     public Metadata(long refreshBackoffMs, long metadataExpireMs, boolean topicExpiryEnabled, ClusterResourceListeners clusterResourceListeners) {
@@ -125,15 +180,16 @@ public final class Metadata {
     }
 
     /**
-     * Request an update of the current cluster metadata info, return the current version before the update
+     * 请求更新当前集群元数据信息，并在更新之前返回当前版本
      */
     public synchronized int requestUpdate() {
-        this.needUpdate = true;
-        return this.version;
+        this.needUpdate = true;//设置 needUpdate=true 表示需要强制更新cluster
+        return this.version; //返回当前 Kafka 集群元数据的版本号
     }
 
     /**
      * Check whether an update has been explicitly requested.
+     *
      * @return true if an update was requested, false otherwise
      */
     public synchronized boolean updateRequested() {
@@ -141,7 +197,11 @@ public final class Metadata {
     }
 
     /**
-     * Wait for metadata update until the current version is larger than the last version we know of
+     * 等待元数据更新，直到当前版本大于我们所知道的最新版本
+     *
+     * @param lastVersion 最新版本(更新前)
+     * @param maxWaitMs   等待元数据更新的最长时间
+     * @throws InterruptedException
      */
     public synchronized void awaitUpdate(final int lastVersion, final long maxWaitMs) throws InterruptedException {
         if (maxWaitMs < 0) {
@@ -149,8 +209,12 @@ public final class Metadata {
         }
         long begin = System.currentTimeMillis();
         long remainingWaitMs = maxWaitMs;
+
+        //比较版本号 , 通过版本号比较集群元数据是否更新完成
         while (this.version <= lastVersion) {
             if (remainingWaitMs != 0)
+                //主线程(当前线程)等待，直到另一个线程为此对象调用notify（）方法或notifyAll（）方法，或者经过了指定的时间. 当前线程必须拥有该对象的监视器。
+                //Sender线程会调用update()方法更新metadata,更新完成后,this.version+=1,然后调用notifyAll(),唤醒所有等待这个对象的monitor的线程
                 wait(remainingWaitMs);
             long elapsed = System.currentTimeMillis() - begin;
             if (elapsed >= maxWaitMs)
@@ -163,6 +227,7 @@ public final class Metadata {
      * Replace the current set of topics maintained to the one provided.
      * If topic expiry is enabled, expiry time of the topics will be
      * reset on the next update.
+     *
      * @param topics
      */
     public synchronized void setTopics(Collection<String> topics) {
@@ -182,6 +247,7 @@ public final class Metadata {
 
     /**
      * Check if a topic is already in the topic set.
+     *
      * @param topic topic to check
      * @return true if the topic exists, false otherwise
      */
@@ -215,7 +281,7 @@ public final class Metadata {
             }
         }
 
-        for (Listener listener: listeners)
+        for (Listener listener : listeners)
             listener.onMetadataUpdate(cluster);
 
         String previousClusterId = cluster.clusterResource().clusterId();
@@ -272,6 +338,7 @@ public final class Metadata {
 
     /**
      * Set state to indicate if metadata for all topics in Kafka cluster is required or not.
+     *
      * @param needMetadataForAllTopics boolean indicating need for metadata of all topics in cluster.
      */
     public synchronized void needMetadataForAllTopics(boolean needMetadataForAllTopics) {

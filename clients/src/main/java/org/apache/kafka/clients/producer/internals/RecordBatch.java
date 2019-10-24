@@ -3,9 +3,9 @@
  * file distributed with this work for additional information regarding copyright ownership. The ASF licenses this file
  * to You under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with the
  * License. You may obtain a copy of the License at
- * 
+ * <p>
  * http://www.apache.org/licenses/LICENSE-2.0
- * 
+ * <p>
  * Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on
  * an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the
  * specific language governing permissions and limitations under the License.
@@ -25,26 +25,59 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * A batch of records that is or will be sent.
- * 
- * This class is not thread safe and external synchronization must be used when modifying it
+ * A batch of records that is or will be sent.<br>
+ * 一批即将或将要发送的记录 (此类不是线程安全的，修改该类时必须使用外部同步)
  */
 public final class RecordBatch {
 
     private static final Logger log = LoggerFactory.getLogger(RecordBatch.class);
 
+    /**
+     * 记录了保存的 Record 的个数
+     */
     public int recordCount = 0;
+    /**
+     * 最大 Record 的字节数
+     */
     public int maxRecordSize = 0;
+    /**
+     * 尝试发送当前 RecordBatch 的次数
+     */
     public volatile int attempts = 0;
     public final long createdMs;
     public long drainedMs;
+    /**
+     * 最后一次尝试发送的时间戳
+     */
     public long lastAttemptMs;
+    /**
+     * 指向用来存储数据的 MemoryRecords 对象
+     */
     public final MemoryRecords records;
+    /**
+     * 当前 RecordBatch 中缓存的消息都会发送给此 TopicPartition
+     */
     public final TopicPartition topicPartition;
+    /**
+     * 标识 RecordBatch 状态的 Future 对象
+     */
     public final ProduceRequestResult produceFuture;
+    /**
+     * 最后一次向 RecordBatch 追加消息的时间戳
+     */
     public long lastAppendTime;
+    /**
+     * 消息的回调对象队列:Thunk(封装Callback和与其关联的FutureRecordMetadata)
+     */
     private final List<Thunk> thunks;
+    /**
+     * 用来记录某消息在 RecordBatch 中的偏移量
+     */
     private long offsetCounter = 0L;
+    /**
+     * 是否正在重试<br>
+     * 如果 RecordBatch 中的数据发送失败 , 则会重新尝试发送
+     */
     private boolean retry;
 
     public RecordBatch(TopicPartition tp, MemoryRecords records, long now) {
@@ -60,7 +93,7 @@ public final class RecordBatch {
 
     /**
      * Append the record to the current record set and return the relative offset within that record set
-     * 
+     *
      * @return The RecordSend corresponding to this record or null if there isn't sufficient room.
      */
     public FutureRecordMetadata tryAppend(long timestamp, byte[] key, byte[] value, Callback callback, long now) {
@@ -71,9 +104,9 @@ public final class RecordBatch {
             this.maxRecordSize = Math.max(this.maxRecordSize, Record.recordSize(key, value));
             this.lastAppendTime = now;
             FutureRecordMetadata future = new FutureRecordMetadata(this.produceFuture, this.recordCount,
-                                                                   timestamp, checksum,
-                                                                   key == null ? -1 : key.length,
-                                                                   value == null ? -1 : value.length);
+                    timestamp, checksum,
+                    key == null ? -1 : key.length,
+                    value == null ? -1 : value.length);
             if (callback != null)
                 thunks.add(new Thunk(callback, future));
             this.recordCount++;
@@ -83,27 +116,27 @@ public final class RecordBatch {
 
     /**
      * Complete the request
-     * 
+     *
      * @param baseOffset The base offset of the messages assigned by the server
-     * @param timestamp The timestamp returned by the broker.
-     * @param exception The exception that occurred (or null if the request was successful)
+     * @param timestamp  The timestamp returned by the broker.
+     * @param exception  The exception that occurred (or null if the request was successful)
      */
     public void done(long baseOffset, long timestamp, RuntimeException exception) {
         log.trace("Produced messages to topic-partition {} with base offset offset {} and error: {}.",
-                  topicPartition,
-                  baseOffset,
-                  exception);
+                topicPartition,
+                baseOffset,
+                exception);
         // execute callbacks
         for (int i = 0; i < this.thunks.size(); i++) {
             try {
                 Thunk thunk = this.thunks.get(i);
                 if (exception == null) {
                     // If the timestamp returned by server is NoTimestamp, that means CreateTime is used. Otherwise LogAppendTime is used.
-                    RecordMetadata metadata = new RecordMetadata(this.topicPartition,  baseOffset, thunk.future.relativeOffset(),
-                                                                 timestamp == Record.NO_TIMESTAMP ? thunk.future.timestamp() : timestamp,
-                                                                 thunk.future.checksum(),
-                                                                 thunk.future.serializedKeySize(),
-                                                                 thunk.future.serializedValueSize());
+                    RecordMetadata metadata = new RecordMetadata(this.topicPartition, baseOffset, thunk.future.relativeOffset(),
+                            timestamp == Record.NO_TIMESTAMP ? thunk.future.timestamp() : timestamp,
+                            thunk.future.checksum(),
+                            thunk.future.serializedKeySize(),
+                            thunk.future.serializedValueSize());
                     thunk.callback.onCompletion(metadata, null);
                 } else {
                     thunk.callback.onCompletion(null, exception);
@@ -136,8 +169,8 @@ public final class RecordBatch {
     /**
      * A batch whose metadata is not available should be expired if one of the following is true:
      * <ol>
-     *     <li> the batch is not in retry AND request timeout has elapsed after it is ready (full or linger.ms has reached).
-     *     <li> the batch is in retry AND request timeout has elapsed after the backoff period ended.
+     * <li> the batch is not in retry AND request timeout has elapsed after it is ready (full or linger.ms has reached).
+     * <li> the batch is in retry AND request timeout has elapsed after the backoff period ended.
      * </ol>
      */
     public boolean maybeExpire(int requestTimeoutMs, long retryBackoffMs, long now, long lingerMs, boolean isFull) {
@@ -158,7 +191,7 @@ public final class RecordBatch {
         if (expire) {
             this.records.close();
             this.done(-1L, Record.NO_TIMESTAMP,
-                      new TimeoutException("Expiring " + recordCount + " record(s) for " + topicPartition + " due to " + errorMessage));
+                    new TimeoutException("Expiring " + recordCount + " record(s) for " + topicPartition + " due to " + errorMessage));
         }
 
         return expire;

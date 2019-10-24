@@ -3,28 +3,34 @@
  * file distributed with this work for additional information regarding copyright ownership. The ASF licenses this file
  * to You under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with the
  * License. You may obtain a copy of the License at
- * 
+ * <p>
  * http://www.apache.org/licenses/LICENSE-2.0
- * 
+ * <p>
  * Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on
  * an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the
  * specific language governing permissions and limitations under the License.
  */
 package org.apache.kafka.clients.producer.internals;
 
+import org.apache.kafka.clients.producer.RecordMetadata;
+
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
-import org.apache.kafka.clients.producer.RecordMetadata;
-
 /**
- * The future result of a record send
+ * 一条记录发送的Future结果
  */
 public final class FutureRecordMetadata implements Future<RecordMetadata> {
 
+    /**
+     * 对应消息所在 RecordBatch 的 produceFuture
+     */
     private final ProduceRequestResult result;
+    /**
+     * 对应消息在 RecordBatch 中的偏移量
+     */
     private final long relativeOffset;
     private final long timestamp;
     private final long checksum;
@@ -66,12 +72,12 @@ public final class FutureRecordMetadata implements Future<RecordMetadata> {
         else
             return value();
     }
-    
+
     RecordMetadata value() {
         return new RecordMetadata(result.topicPartition(), this.result.baseOffset(), this.relativeOffset,
-                                  this.timestamp, this.checksum, this.serializedKeySize, this.serializedValueSize);
+                this.timestamp, this.checksum, this.serializedKeySize, this.serializedValueSize);
     }
-    
+
     public long relativeOffset() {
         return this.relativeOffset;
     }
