@@ -3,9 +3,9 @@
  * file distributed with this work for additional information regarding copyright ownership. The ASF licenses this file
  * to You under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with the
  * License. You may obtain a copy of the License at
- *
+ * <p>
  * http://www.apache.org/licenses/LICENSE-2.0
- *
+ * <p>
  * Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on
  * an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the
  * specific language governing permissions and limitations under the License.
@@ -57,10 +57,10 @@ import org.slf4j.LoggerFactory;
  * <pre>
  * nioSelector.connect(&quot;42&quot;, new InetSocketAddress(&quot;google.com&quot;, server.port), 64000, 64000);
  * </pre>
- *
+ * <p>
  * The connect call does not block on the creation of the TCP connection, so the connect method only begins initiating
  * the connection. The successful invocation of this method does not mean a valid connection has been established.
- *
+ * <p>
  * Sending requests, receiving responses, processing connection completions, and disconnections on the existing
  * connections are all done using the <code>poll()</code> call.
  *
@@ -69,10 +69,10 @@ import org.slf4j.LoggerFactory;
  * nioSelector.send(new NetworkSend(myOtherDestination, myOtherBytes));
  * nioSelector.poll(TIMEOUT_MS);
  * </pre>
- *
+ * <p>
  * The nioSelector maintains several lists that are reset by each call to <code>poll()</code> which are available via
  * various getters. These are reset by each call to <code>poll()</code>.
- *
+ * <p>
  * This class is not thread safe!
  */
 public class Selector implements Selectable {
@@ -80,19 +80,48 @@ public class Selector implements Selectable {
     public static final long NO_IDLE_TIMEOUT_MS = -1;
     private static final Logger log = LoggerFactory.getLogger(Selector.class);
 
+    /**
+     * 监听网络 I/O 事件
+     */
     private final java.nio.channels.Selector nioSelector;
+    /**
+     * NodeId 与 KafkaChannel之间的映射关系
+     */
     private final Map<String, KafkaChannel> channels;
+    /**
+     * 记录已经完全发送出去的请求
+     */
     private final List<Send> completedSends;
+    /**
+     * 记录已经完全接收到的请求
+     */
     private final List<NetworkReceive> completedReceives;
+    /**
+     * 暂存一次 OP READ 事件处理过程中读取到的全部请求<br>
+     * 当一次 OP _ READ 事件处理完成之后 , 会将 stagedReceives 集合中的请求保存到 completeReceives 集合中
+     */
     private final Map<KafkaChannel, Deque<NetworkReceive>> stagedReceives;
     private final Set<SelectionKey> immediatelyConnectedKeys;
+    /**
+     * 记录一次 poll 过程中发现的断开的连接
+     */
     private final List<String> disconnected;
+    /**
+     * 记录一次 poll 过程中发现的新建立的连接
+     */
     private final List<String> connected;
+    /**
+     * 记录向哪些 Node 发送的请求失败了
+     */
     private final List<String> failedSends;
     private final Time time;
     private final SelectorMetrics sensors;
     private final String metricGrpPrefix;
     private final Map<String, String> metricTags;
+    /**
+     * 用于创建 KafkaChannel 的 Builder<br>
+     * 根据不同配置创建不同的 TransportLayer 的子类 , 然后创建 KafkaChannel
+     */
     private final ChannelBuilder channelBuilder;
     private final int maxReceiveSize;
     private final boolean metricsPerConnection;
@@ -101,14 +130,14 @@ public class Selector implements Selectable {
     /**
      * Create a new nioSelector
      *
-     * @param maxReceiveSize Max size in bytes of a single network receive (use {@link NetworkReceive#UNLIMITED} for no limit)
-     * @param connectionMaxIdleMs Max idle connection time (use {@link #NO_IDLE_TIMEOUT_MS} to disable idle timeout)
-     * @param metrics Registry for Selector metrics
-     * @param time Time implementation
-     * @param metricGrpPrefix Prefix for the group of metrics registered by Selector
-     * @param metricTags Additional tags to add to metrics registered by Selector
+     * @param maxReceiveSize       Max size in bytes of a single network receive (use {@link NetworkReceive#UNLIMITED} for no limit)
+     * @param connectionMaxIdleMs  Max idle connection time (use {@link #NO_IDLE_TIMEOUT_MS} to disable idle timeout)
+     * @param metrics              Registry for Selector metrics
+     * @param time                 Time implementation
+     * @param metricGrpPrefix      Prefix for the group of metrics registered by Selector
+     * @param metricTags           Additional tags to add to metrics registered by Selector
      * @param metricsPerConnection Whether or not to enable per-connection metrics
-     * @param channelBuilder Channel builder for every new connection
+     * @param channelBuilder       Channel builder for every new connection
      */
     public Selector(int maxReceiveSize,
                     long connectionMaxIdleMs,
@@ -151,12 +180,13 @@ public class Selector implements Selectable {
      * <p>
      * Note that this call only initiates the connection, which will be completed on a future {@link #poll(long)}
      * call. Check {@link #connected()} to see which (if any) connections have completed after a given poll call.
-     * @param id The id for the new connection
-     * @param address The address to connect to
-     * @param sendBufferSize The send buffer for the new connection
+     *
+     * @param id                The id for the new connection
+     * @param address           The address to connect to
+     * @param sendBufferSize    The send buffer for the new connection
      * @param receiveBufferSize The receive buffer for the new connection
      * @throws IllegalStateException if there is already a connection for that id
-     * @throws IOException if DNS resolution fails on the hostname or if the broker is down
+     * @throws IOException           if DNS resolution fails on the hostname or if the broker is down
      */
     @Override
     public void connect(String id, InetSocketAddress address, int sendBufferSize, int receiveBufferSize) throws IOException {
@@ -234,6 +264,7 @@ public class Selector implements Selectable {
 
     /**
      * Queue the given request for sending in the subsequent {@link #poll(long)} calls
+     *
      * @param send The request to send
      */
     public void send(Send send) {
@@ -249,12 +280,12 @@ public class Selector implements Selectable {
     /**
      * Do whatever I/O can be done on each connection without blocking. This includes completing connections, completing
      * disconnections, initiating new sends, or making progress on in-progress sends or receives.
-     *
+     * <p>
      * When this call is completed the user can check for completed sends, receives, connections or disconnects using
      * {@link #completedSends()}, {@link #completedReceives()}, {@link #connected()}, {@link #disconnected()}. These
      * lists will be cleared at the beginning of each `poll` call and repopulated by the call if there is
      * any completed I/O.
-     *
+     * <p>
      * In the "Plaintext" setting, we are using socketChannel to read & write to the network. But for the "SSL" setting,
      * we encrypt the data before we use socketChannel to write data to the network, and decrypt before we return the responses.
      * This requires additional buffers to be maintained as we are reading from network, since the data on the wire is encrypted
@@ -268,8 +299,8 @@ public class Selector implements Selectable {
      *
      * @param timeout The amount of time to wait, in milliseconds, which must be non-negative
      * @throws IllegalArgumentException If `timeout` is negative
-     * @throws IllegalStateException If a send is given for which we have no existing connection or for which there is
-     *         already an in-progress send
+     * @throws IllegalStateException    If a send is given for which we have no existing connection or for which there is
+     *                                  already an in-progress send
      */
     @Override
     public void poll(long timeout) throws IOException {
@@ -606,7 +637,7 @@ public class Selector implements Selectable {
             String metricGrpName = metricGrpPrefix + "-metrics";
             StringBuilder tagsSuffix = new StringBuilder();
 
-            for (Map.Entry<String, String> tag: metricTags.entrySet()) {
+            for (Map.Entry<String, String> tag : metricTags.entrySet()) {
                 tagsSuffix.append(tag.getKey());
                 tagsSuffix.append("-");
                 tagsSuffix.append(tag.getValue());

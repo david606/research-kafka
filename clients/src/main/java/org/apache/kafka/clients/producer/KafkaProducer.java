@@ -136,11 +136,6 @@ public class KafkaProducer<K, V> implements Producer<K, V> {
      */
     private static final AtomicInteger PRODUCER_CLIENT_ID_SEQUENCE = new AtomicInteger(1);
     private static final String JMX_PREFIX = "kafka.producer";
-
-    /**
-     * 生产者唯一标识
-     */
-    private String clientId;
     /**
      * 分区选择器:根据一定策略,将消息路由到合适的分区
      */
@@ -165,7 +160,6 @@ public class KafkaProducer<K, V> implements Producer<K, V> {
      * 发送消息的 Sender 任务,实现了 Runnable 接口,在 ioThread 线程中执行
      */
     private final Sender sender;
-
     private final Metrics metrics;
     /**
      * 执行Sender任务发送消息的线程,称为“Sender线程”
@@ -206,6 +200,10 @@ public class KafkaProducer<K, V> implements Producer<K, V> {
      * 也可以先于用户的Callback,对ACK响应进行预处理
      */
     private final ProducerInterceptors<K, V> interceptors;
+    /**
+     * 生产者唯一标识
+     */
+    private String clientId;
 
     /**
      * A producer is instantiated by providing a set of key-value pairs as configuration. Valid configuration strings
@@ -505,7 +503,7 @@ public class KafkaProducer<K, V> implements Producer<K, V> {
     /**
      * 实现异步发送记录到topic.
      *
-     * @param record 要发送给Kafka的键/值对(包含topic,partition,timestamp...)
+     * @param record   要发送给Kafka的键/值对(包含topic,partition,timestamp...)
      * @param callback 请求完成后被调用的代码(回调方法)
      * @return Future <RecordMetadata> :异步计算的结果
      */
@@ -548,6 +546,8 @@ public class KafkaProducer<K, V> implements Producer<K, V> {
             Callback interceptCallback = this.interceptors == null ? callback : new InterceptorCallback<>(callback, this.interceptors, tp);
             //将记录添加到缓存等待发送，返回追加结果
             RecordAccumulator.RecordAppendResult result = accumulator.append(tp, timestamp, serializedKey, serializedValue, interceptCallback, remainingWaitMs);
+
+            //如果RecordBatch已満或新创建了RecordBatch,则唤醒Sender线程
             if (result.batchIsFull || result.newBatchCreated) {
                 log.trace("Waking up the sender since topic {} partition {} is either full or getting a new batch", record.topic(), partition);
                 this.sender.wakeup();

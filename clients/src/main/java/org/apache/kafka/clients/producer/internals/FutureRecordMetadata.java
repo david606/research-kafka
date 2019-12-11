@@ -20,7 +20,10 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
 /**
- * 一条记录发送的Future结果
+ * 一条记录发送的Future结果<br>
+ * 其实现了Future<RecordMetadata>接口,都是委托给ProduceRequestResult实现<br>
+ *      Future 表示异步计算的结果(提供了一些方法来检查计算是否完成，等待其完成以及检索计算结果);
+ *      RecordMetadata 表示从server响应的Metadata
  */
 public final class FutureRecordMetadata implements Future<RecordMetadata> {
 

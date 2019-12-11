@@ -75,6 +75,14 @@ public class MemoryRecords implements Records {
         }
     }
 
+    /**
+     * 创建一个空的Records
+     *
+     * @param buffer     被读取/写入的底层buffer
+     * @param type       压缩类型
+     * @param writeLimit 可写容量
+     * @return
+     */
     public static MemoryRecords emptyRecords(ByteBuffer buffer, CompressionType type, int writeLimit) {
         return new MemoryRecords(buffer, type, true, writeLimit);
     }
@@ -121,7 +129,7 @@ public class MemoryRecords implements Records {
     }
 
     /**
-     * Check if we have room for a new record containing the given key/value pair
+     * 检查我们是否有空间容纳包含给定键/值对的新记录
      * <p>
      * Note that the return value is based on the estimate of the bytes written to the compressor, which may not be
      * accurate if compression is really used. When this happens, the following append may cause dynamic buffer
@@ -141,12 +149,17 @@ public class MemoryRecords implements Records {
                 this.writeLimit >= this.compressor.estimatedBytesWritten() + Records.LOG_OVERHEAD + Record.recordSize(key, value);
     }
 
+    /**
+     * 判断是否已満: 不可写||要写入的size>可写入的size
+     *
+     * @return
+     */
     public boolean isFull() {
         return !this.writable || this.writeLimit <= this.compressor.estimatedBytesWritten();
     }
 
     /**
-     * 关闭此批次，不再追加
+     * 关闭此RecordBatch，不再追加
      */
     public void close() {
         if (writable) {
@@ -246,11 +259,10 @@ public class MemoryRecords implements Records {
         private final DataInputStream stream;
         private final CompressionType type;
         private final boolean shallow;
-        private RecordsIterator innerIter;
-
         // The variables for inner iterator
         private final ArrayDeque<LogEntry> logEntries;
         private final long absoluteBaseOffset;
+        private RecordsIterator innerIter;
 
         public RecordsIterator(ByteBuffer buffer, boolean shallow) {
             this.type = CompressionType.NONE;

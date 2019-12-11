@@ -23,11 +23,8 @@ import org.apache.kafka.common.TopicPartition;
 
 
 /**
- * A class that models the future completion of a produce request for a single partition.<br>
  * 这个类为单个分区的produce request的完成建立一个Future.<br>
- * There is one of these per partition in a produce request and it is shared by all the {@link org.apache.kafka.clients.producer.RecordMetadata} instances that are batched together
- * for the same partition in the request.<br>
- * 在produce request中,每个分区都有一个,且在请求中相同分区的所有一批RecordMetadata 实例共享
+ * 在produce request中,每个分区都有一个,且在请求中被相同分区的一批RecordMetadata 实例所共享
  */
 public final class ProduceRequestResult {
 
@@ -40,8 +37,8 @@ public final class ProduceRequestResult {
     }
 
     /**
-     * Mark this request as complete and unblock any threads waiting on its completion.
-     * @param topicPartition The topic and partition to which this record set was sent was sent
+     * 将此请求标记为已完成，并unlock所有等待其完成的线程
+     * @param topicPartition The topic and partition to which this record set was sent
      * @param baseOffset 分配给记录的基本偏移量(类似于第几条记录,从1开始,发送一条加1(offset=offset+1))
      * @param error The error that occurred if there was one, or null.
      */
